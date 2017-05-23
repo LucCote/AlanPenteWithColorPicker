@@ -2,6 +2,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.swing.JOptionPane;
 
@@ -38,7 +39,6 @@ public class PenteFirebase{
 	private FirebaseDatabase database;
 	private DatabaseReference ref;
 	private final AtomicInteger currentRoom=new AtomicInteger(0);
-	
 	public PenteFirebase(GameBoard board){
 		b=board;
 		this.board=board.getBoard();
@@ -87,7 +87,8 @@ public class PenteFirebase{
 		int col=Integer.parseInt(s.substring(commaIndex+2));
 		return board[row][col];
 	}
-	
+	DatabaseReference roomRef;
+	String players;
 	public void connect(){
 		final AtomicBoolean read = new AtomicBoolean(false);
 		ref.child("CurrentRoom").addValueEventListener(new ValueEventListener(){
@@ -97,9 +98,38 @@ public class PenteFirebase{
 				read.set(true);
 			}
 		}); while(!read.get());
-		DatabaseReference roomRef = database.getReference().child("Rooms");
+		roomRef = database.getReference().child("Rooms");
+		players = FireRead(roomRef.child(String.valueOf(currentRoom.get())).child("Players"));
 		listen(roomRef, roomRef.child(String.valueOf(currentRoom.get())).child("Players"));
 		
+	}
+
+	public int getPlayerColor(){
+		int color = 0;
+		if(players.matches("1")){
+			color = PenteMain.WHITE;
+		}else{
+			color = PenteMain.BLACK;
+		}
+		return color;
+	}
+	public String FireRead(DatabaseReference dbr){
+		final AtomicBoolean doneRead = new AtomicBoolean(false);
+		final AtomicReference<String> toReturn = new AtomicReference<String>("null");
+		dbr.addValueEventListener(new ValueEventListener() {
+			@Override
+			 public void onDataChange(DataSnapshot dataSnapshot) {
+				toReturn.set(dataSnapshot.getValue(String.class));
+				doneRead.set(true);
+				
+		    }
+
+		    @Override
+		    public void onCancelled(DatabaseError databaseError) {
+		        // ...
+		    }
+		});while(!doneRead.get());
+		return toReturn.get();
 	}
 	
 	private void listen(DatabaseReference ref1, DatabaseReference ref){
